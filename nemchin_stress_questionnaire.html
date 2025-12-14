@@ -1,1 +1,422 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Опитувальник схильності до стресу (Адаптація Немчіна та Тейлора)</title>
+    <!-- Підключення Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Стилі для адаптивного та красивого відображення */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f9fafb; /* Дуже світлий фон */
+        }
+        .question-item {
+            padding: 1rem;
+            transition: background-color 0.2s;
+        }
+        .question-item:hover {
+            background-color: #f3f4f6; /* Легкий ефект при наведенні */
+        }
+        .question-item:nth-child(even) {
+            background-color: #ffffff; 
+        }
+        .result-box {
+            animation: fadeIn 0.5s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar style for the questionnaire container */
+        .question-container {
+            min-height: 40vh; /* Ensure minimum height for visible content */
+        }
+        .page {
+            display: none; /* Pages are hidden by default, shown by JS */
+        }
+        .page.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
 
+    <div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-xl p-6 md:p-10">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-600 mb-2">Комплексний опитувальник схильності до стресу та тривожності</h1>
+            <h2 class="text-xl font-semibold text-gray-500">Адаптована методика Т.А. Немчіна та Дж. Тейлора</h2>
+            <p class="mt-4 text-gray-600 text-left">
+                Цей опитувальник є комбінованою та адаптованою методикою, що поєднує підходи Т.А. Немчіна (оцінка психологічної стійкості та нервово-психічної напруги) та Дж. Тейлора (фактори маніфестної тривожності). Він призначений для визначення рівня схильності особистості до розвитку стресових реакцій та тривоги. Чим вищий отриманий бал, тим більша ймовірність виникнення стресових реакцій у складних життєвих ситуаціях.
+            </p>
+            <p class="mt-2 text-gray-500">Оцініть свій типовий стан протягом останнього місяця, відповідаючи "Так" або "Ні".</p>
+        </header>
+
+        <!-- Індикатор прогресу -->
+        <div id="progress-indicator" class="w-full bg-gray-200 rounded-full h-2.5 mb-6 shadow-inner">
+            <div id="progress-bar" class="bg-indigo-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <!-- Контейнер для питань (сторінок) -->
+        <div id="questions-container" class="question-container border border-gray-200 rounded-lg divide-y divide-gray-200 mb-8 overflow-hidden">
+            <!-- Сторінки з питаннями будуть згенеровані тут за допомогою JS -->
+        </div>
+
+        <!-- Контейнер для навігації -->
+        <div class="flex justify-between items-center mt-6">
+            <button id="prev-button"
+                    class="px-6 py-2 bg-gray-400 text-white font-bold rounded-lg shadow-lg hover:bg-gray-500 transition duration-300 ease-in-out disabled:opacity-50 disabled:shadow-none"
+                    disabled>
+                ← Назад
+            </button>
+            <span id="page-info" class="text-gray-600 font-medium text-sm sm:text-base">Сторінка 1 з 3</span>
+            <button id="next-button"
+                    class="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:scale-100 disabled:shadow-none">
+                Далі →
+            </button>
+        </div>
+
+        <!-- Контейнер для результатів -->
+        <div id="results-section" class="mt-10 hidden result-box">
+            <h3 class="text-2xl font-bold text-gray-700 border-b-2 border-indigo-400 pb-2 mb-4 text-center">Ваш результат</h3>
+            
+            <div class="flex flex-col sm:flex-row justify-between items-center bg-gray-50 p-4 rounded-lg shadow-lg mb-6 border border-gray-200">
+                <span class="text-lg font-medium text-gray-600">Загальний бал:</span>
+                <span id="score-output" class="text-4xl font-extrabold text-indigo-700">0</span>
+            </div>
+
+            <div id="result-interpretation" class="p-6 border-l-4 rounded-lg shadow-md">
+                <p class="text-xl font-semibold mb-2" id="level-title-output">Рівень схильності до стресу:</p>
+                <p id="level-output" class="text-3xl font-extrabold mb-4"></p>
+                <p class="text-gray-700" id="interpretation-output"></p>
+            </div>
+            
+            <button id="restart-button"
+                    class="w-full mt-6 px-8 py-3 bg-red-600 text-white font-bold rounded-lg shadow-lg hover:bg-red-700 transition duration-300 ease-in-out transform hover:scale-105">
+                Почати заново
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            "Ви часто відчуваєте нервову напругу чи занепокоєння без видимої причини?", "Навіть при невеликому навантаженні Ви швидко втомлюєтеся?", "Чи легко Вас роздратувати, вивести з рівноваги?", "Чи буває у Вас відчуття тяжкості або напруги в області шиї, плечей?",
+            "Чи виникають у Вас труднощі із засинанням?", "Ви часто відчуваєте, що не можете розслабитися?", "Чи бувають у Вас раптові напади сильного серцебиття?", "Чи схильні Ви до переїдання або, навпаки, втрати апетиту під час стресу?",
+            "Чи відчуваєте Ви, що Ваша пам'ять останнім часом погіршилася?", "Чи буває у Вас тремтіння (рук, повік) у стані хвилювання?", "Чи складно Вам зосередитися на одному завданні протягом тривалого часу?", "Чи часто Вам сняться тривожні сни?",
+            "Чи відчуваєте Ви вранці, що не виспалися, навіть якщо спали достатньо?", "Ви часто відчуваєте себе винним без вагомої причини?", "Чи схильні Ви до раптових змін настрою?", "Чи відчуваєте Ви іноді біль у шлунку або кишечнику, пов'язаний із нервами?",
+            "Чи здається Вам, що навколишні часто не розуміють Вас?", "Чи буває, що Ви починаєте курити (їсти) більше, коли нервуєте?", "Чи складно Вам приймати рішення, коли потрібно діяти швидко?", "Чи схильні Ви надмірно турбуватися про своє здоров'я?",
+            "Чи часто Ви відчуваєте млявість, апатію?", "Чи буває у Вас відчуття нестачі повітря (ком у горлі)?", "Чи помічаєте Ви, що стали частіше хворіти на застуди?", "Чи відчуваєте Ви себе незграбним, розсіяним у відповідальні моменти?",
+            "Чи часто Ви відчуваєте головний біль напруги?", "Чи схильні Ви до надмірної самокритики?", "Чи уникаєте Ви ситуацій, які, на Вашу думку, можуть спричинити конфлікт?", "Чи часто Ви відкладаєте справи на потім через внутрішній опір?",
+            "Чи помічаєте Ви, що стали менш терплячим до недоліків інших?", "Чи схильні Ви 'заводитися' через дрібниці?"
+        ];
+
+        const questionsPerPage = 10;
+        const totalPages = Math.ceil(questions.length / questionsPerPage);
+        let currentPage = 1;
+
+        const container = document.getElementById('questions-container');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+        const pageInfo = document.getElementById('page-info');
+        const resultsSection = document.getElementById('results-section');
+        const scoreOutput = document.getElementById('score-output');
+        const levelOutput = document.getElementById('level-output');
+        const interpretationOutput = document.getElementById('interpretation-output');
+        const resultInterpretationDiv = document.getElementById('result-interpretation');
+        const levelTitleOutput = document.getElementById('level-title-output');
+        const progressBar = document.getElementById('progress-bar');
+        const restartButton = document.getElementById('restart-button');
+        
+        // Мапа для збереження відповідей: {qNum: score (0 or 1)}
+        const userAnswers = {};
+
+
+        // Функція для генерації питань та сторінок
+        function renderQuestions() {
+            container.innerHTML = '';
+            questions.forEach((qText, index) => {
+                const qNum = index + 1;
+                const pageNum = Math.ceil(qNum / questionsPerPage);
+                
+                let pageDiv = document.getElementById(`page-${pageNum}`);
+                if (!pageDiv) {
+                    pageDiv = document.createElement('div');
+                    pageDiv.id = `page-${pageNum}`;
+                    pageDiv.classList.add('page', 'divide-y', 'divide-gray-200');
+                    container.appendChild(pageDiv);
+                }
+
+                const checkedYes = userAnswers[qNum] === 1 ? 'checked' : '';
+                const checkedNo = userAnswers[qNum] === 0 ? 'checked' : '';
+
+                const questionHtml = `
+                    <div class="question-item flex flex-col md:flex-row md:items-center justify-between transition duration-150 ease-in-out">
+                        <p class="flex-1 text-gray-800 font-medium mb-3 md:mb-0 md:pr-4">
+                            <span class="font-extrabold text-indigo-600 mr-2">${qNum}.</span> ${qText}
+                        </p>
+                        <div class="flex space-x-6 flex-shrink-0">
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="q${qNum}" value="1" class="form-radio h-4 w-4 text-green-600 focus:ring-green-500 transition duration-150 ease-in-out answer-input" data-qnum="${qNum}" ${checkedYes}>
+                                <span class="ml-2 text-gray-700 font-medium">Так</span>
+                            </label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="radio" name="q${qNum}" value="0" class="form-radio h-4 w-4 text-red-600 focus:ring-red-500 transition duration-150 ease-in-out answer-input" data-qnum="${qNum}" ${checkedNo}>
+                                <span class="ml-2 text-gray-700 font-medium">Ні</span>
+                            </label>
+                        </div>
+                    </div>
+                `;
+                pageDiv.innerHTML += questionHtml;
+            });
+            
+            // Додаємо слухача подій до контейнера для збереження відповідей
+            container.addEventListener('change', handleAnswerChange);
+        }
+
+        // Функція для обробки зміни відповіді
+        function handleAnswerChange(event) {
+            if (event.target.classList.contains('answer-input')) {
+                const qNum = parseInt(event.target.dataset.qnum);
+                const score = parseInt(event.target.value);
+                userAnswers[qNum] = score;
+                checkCompletion(currentPage);
+            }
+        }
+
+        // Функція показу поточної сторінки
+        function showPage(pageNumber) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            const newPage = document.getElementById(`page-${pageNumber}`);
+            if (newPage) {
+                newPage.classList.add('active');
+                currentPage = pageNumber;
+                updateNavigation();
+                updateProgressBar();
+                resultsSection.classList.add('hidden'); // Приховати результати при переході на сторінку
+            }
+        }
+        
+        // Функція оновлення прогресу
+        function updateProgressBar() {
+            const progress = (currentPage - 1) * questionsPerPage;
+            const percentage = (progress / questions.length) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+
+
+        // Функція перевірки, чи на всі питання поточної сторінки відповіли
+        function checkCompletion(page) {
+            const startQ = (page - 1) * questionsPerPage + 1;
+            const endQ = Math.min(page * questionsPerPage, questions.length);
+            let answeredOnPage = 0;
+
+            for (let i = startQ; i <= endQ; i++) {
+                if (userAnswers.hasOwnProperty(i)) {
+                    answeredOnPage++;
+                }
+            }
+
+            // Дозволяємо перехід, якщо всі питання на сторінці мають відповідь
+            nextButton.disabled = answeredOnPage !== (endQ - startQ + 1);
+            
+            // Оновлення тексту кнопки
+            if (currentPage === totalPages) {
+                 // УВАГА: На останній сторінці перевірка заповнення не потрібна для активації кнопки "Розрахувати"
+                 // щоб користувач міг повернутися і виправити, а не бути заблокованим
+                nextButton.textContent = 'Розрахувати результат';
+                nextButton.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'bg-indigo-600', 'hover:bg-indigo-700');
+                nextButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                nextButton.disabled = answeredOnPage !== (endQ - startQ + 1); // Перевіряємо, що всі відповіді є
+            } else {
+                nextButton.textContent = 'Далі →';
+                nextButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                nextButton.classList.add('bg-indigo-600', 'hover:bg-indigo-700');
+            }
+        }
+
+        // Функція оновлення навігації
+        function updateNavigation() {
+            prevButton.disabled = currentPage === 1;
+            
+            if (currentPage === totalPages) {
+                // Перевірка, що всі питання на останній сторінці заповнені
+                checkCompletion(currentPage); 
+            } else {
+                checkCompletion(currentPage);
+            }
+
+            if (currentPage < totalPages) {
+                pageInfo.textContent = `Сторінка ${currentPage} з ${totalPages}`;
+            } else {
+                pageInfo.textContent = `Сторінка ${currentPage} з ${totalPages}`;
+            }
+        }
+
+        // Функція переходу до наступної сторінки/розрахунку
+        function nextPage() {
+            // Перевіряємо, чи всі питання на поточній сторінці заповнені
+            if (nextButton.disabled && currentPage !== totalPages) return;
+
+            if (currentPage < totalPages) {
+                showPage(currentPage + 1);
+                // Прокрутка до початку контейнера з питаннями
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else if (currentPage === totalPages) {
+                // Якщо це остання сторінка і ми натискаємо "Розрахувати"
+                calculateScore();
+            }
+        }
+
+        // Функція переходу до попередньої сторінки
+        function prevPage() {
+            if (currentPage > 1) {
+                showPage(currentPage - 1);
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+        
+        // Функція отримання інтерпретації (зі стилізацією)
+        function getInterpretation(score) {
+            let level, interpretation, bgColor, borderColor, textColor;
+
+            if (score >= 0 && score <= 5) {
+                level = "Низький рівень (Висока стресостійкість)";
+                interpretation = "Ви володієте високою психологічною стійкістю, рідко відчуваєте значний стрес і ефективно справляєтеся з напруженими ситуаціями. Ризик розвитку стресових розладів низький.";
+                bgColor = 'bg-teal-100'; borderColor = 'border-teal-600'; textColor = 'text-teal-900';
+            } else if (score >= 6 && score <= 15) {
+                level = "Середній рівень";
+                interpretation = "У Вас помірна схильність до стресових реакцій. Ви можете відчувати напругу в складних ситуаціях, але в цілому здатні контролювати свій стан. Зверніть увагу на питання, де Ви відповіли 'Так'.";
+                bgColor = 'bg-blue-100'; borderColor = 'border-blue-600'; textColor = 'text-blue-900';
+            } else if (score >= 16 && score <= 25) {
+                level = "Високий рівень";
+                interpretation = "Ви маєте підвищену чутливість до стресових чинників. Емоційні та фізичні ознаки напруги виникають часто, що може негативно впливати на якість Вашого життя та здоров'я. Рекомендується впровадження методів релаксації та управління стресом.";
+                bgColor = 'bg-orange-100'; borderColor = 'border-orange-600'; textColor = 'text-orange-900';
+            } else if (score >= 26 && score <= 30) {
+                level = "Дуже високий рівень";
+                interpretation = "Ваша схильність до стресу вкрай висока. Ймовірно, Ви перебуваєте у стані хронічної напруги. Необхідно терміново звернутися до спеціаліста (психолога, психотерапевта) для розробки індивідуальної стратегії зниження стресу та запобігання професійному вигоранню.";
+                bgColor = 'bg-red-100'; borderColor = 'border-red-600'; textColor = 'text-red-900';
+            } else {
+                level = "Помилка";
+                interpretation = "Невірний результат. Перевірте, чи всі питання були коректно оброблені.";
+                bgColor = 'bg-gray-100'; borderColor = 'border-gray-500'; textColor = 'text-gray-900';
+            }
+
+            return { level, interpretation, bgColor, borderColor, textColor };
+        }
+
+        // Функція розрахунку балів
+        function calculateScore() {
+            // Перевірка на заповнення всіх 30 питань
+            if (Object.keys(userAnswers).length !== questions.length) {
+                // Виводимо повідомлення про помилку за допомогою кастомного модального вікна (заборонено використовувати alert)
+                const missingCount = questions.length - Object.keys(userAnswers).length;
+                showCustomAlert(`Будь ласка, дайте відповідь на всі ${questions.length} питань. Залишилося відповісти на ${missingCount} питань.`);
+                return; 
+            }
+
+            let score = 0;
+            for (let qNum = 1; qNum <= questions.length; qNum++) {
+                score += userAnswers[qNum] || 0;
+            }
+
+            // Відображення результатів
+            const resultData = getInterpretation(score);
+
+            scoreOutput.textContent = score;
+            levelOutput.textContent = resultData.level;
+            interpretationOutput.innerHTML = resultData.interpretation;
+            
+            // Стилізація блоку інтерпретації
+            resultInterpretationDiv.className = `p-6 border-l-4 rounded-lg shadow-md ${resultData.bgColor} ${resultData.borderColor}`;
+            levelTitleOutput.classList.remove('text-blue-800', 'text-yellow-900', 'text-orange-900', 'text-red-900', 'text-teal-900');
+            levelTitleOutput.classList.add(resultData.textColor);
+            levelOutput.classList.remove('text-blue-900', 'text-yellow-900', 'text-orange-900', 'text-red-900', 'text-teal-900');
+            levelOutput.classList.add(resultData.textColor);
+
+            // Приховуємо питання та навігацію
+            container.classList.add('hidden');
+            prevButton.classList.add('hidden');
+            nextButton.classList.add('hidden');
+            pageInfo.classList.add('hidden');
+            
+            // Оновлюємо фінальний прогрес
+            progressBar.style.width = '100%';
+
+            // Показуємо результати
+            resultsSection.classList.remove('hidden');
+            
+            // Прокрутка до секції результатів
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Функція перезапуску
+        function restartTest() {
+            // Очищення відповідей
+            for (const key in userAnswers) {
+                delete userAnswers[key];
+            }
+            // Скидання радіокнопок
+            document.querySelectorAll('input[type="radio"]').forEach(input => input.checked = false);
+            
+            // Скидання стану
+            currentPage = 1;
+            
+            // Відображення питань та навігації
+            container.classList.remove('hidden');
+            prevButton.classList.remove('hidden');
+            nextButton.classList.remove('hidden');
+            pageInfo.classList.remove('hidden');
+            resultsSection.classList.add('hidden');
+            
+            // Показ першої сторінки
+            showPage(1);
+            
+            // Прокрутка до початку опитувальника
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // *** CUSTOM ALERT IMPLEMENTATION (Replacing window.alert) ***
+        function showCustomAlert(message) {
+            const modalId = 'custom-alert-modal';
+            let modal = document.getElementById(modalId);
+
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = modalId;
+                modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300 opacity-0 hidden';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-2xl p-6 w-11/12 max-w-sm transform scale-95 transition-transform duration-300">
+                        <h4 class="text-xl font-bold text-red-600 mb-4">Помилка заповнення</h4>
+                        <p class="text-gray-700 mb-6" id="alert-message"></p>
+                        <button id="alert-close-btn" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition duration-150">Зрозуміло</button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                document.getElementById('alert-close-btn').addEventListener('click', () => {
+                    modal.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => modal.classList.add('hidden'), 300);
+                });
+            }
+
+            document.getElementById('alert-message').textContent = message;
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('div').classList.remove('scale-95');
+            }, 10);
+        }
+
+        // Ініціалізація
+        window.onload = () => {
+            renderQuestions();
+            showPage(1); // Показ першої сторінки
+            
+            nextButton.addEventListener('click', nextPage);
+            prevButton.addEventListener('click', prevPage);
+            restartButton.addEventListener('click', restartTest);
+        };
+    </script>
+</body>
+</html>
